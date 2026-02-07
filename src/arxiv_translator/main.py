@@ -1,11 +1,7 @@
 import argparse
 import os
-import shutil
 import sys
-from .downloader import download_source
-from .extractor import extract_source, find_main_tex
-from .translator import GeminiTranslator
-from .compiler import compile_pdf
+from .core import process_arxiv_paper
 from .config import ConfigManager
 
 try:
@@ -58,119 +54,26 @@ def main():
         model_name = "gemini-3-pro-preview"
     
     # Extract ID
-    # heuristics: 2602.04705 or https://arxiv.org/abs/2602.04705 or https://arxiv.org/pdf/2602.04705
     arxiv_id = args.arxiv_url.split("/")[-1].replace(".pdf", "")
 
     print(f"Using model: {model_name}")
-        
-    work_dir = os.path.abspath(f"workspace_{arxiv_id}")
     
-    if os.path.exists(work_dir) and not args.keep:
-         shutil.rmtree(work_dir)
-    if not os.path.exists(work_dir):
-        os.makedirs(work_dir)
-    
-    print(f"Work directory: {work_dir}")
-    
-    try:
-        # 1. Download source
-        tar_path = os.path.join(work_dir, f"{arxiv_id}.tar.gz")
-        if not os.path.exists(tar_path):
-             tar_path = download_source(arxiv_id, work_dir)
-        else:
-             print("Using existing source archive.")
-        
-        # 2. Extract
-        source_dir = os.path.join(work_dir, "source")
-        if not os.path.exists(source_dir):
-            extract_source(tar_path, source_dir)
-        
-        # 3. Translate
-        # Copy source to source_zh
-        source_zh_dir = os.path.join(work_dir, "source_zh")
-        if os.path.exists(source_zh_dir):
-            shutil.rmtree(source_zh_dir) # Always fresh copy for translation
-        shutil.copytree(source_dir, source_zh_dir)
-        
-        main_tex = find_main_tex(source_zh_dir)
-        print(f"Main TeX file: {main_tex}")
-        
-        translator = GeminiTranslator(api_key=api_key, model_name=model_name)
-        
-        # Translate all TeX files
-        for root, dirs, files in os.walk(source_zh_dir):
-            for file in files:
-                if file == "math_commands.tex":
-                    print(f"Skipping {file} (definitions)...")
-                    continue
+    def console_progress(stage, progress, message):
+        pct = f"{progress*100:.1f}%" if progress >= 0 else "..."
+        print(f"[{stage.upper()}] {pct} - {message}")
 
-                if file.endswith(".tex"):
-                    file_path = os.path.join(root, file)
-                    print(f"Translating {file}...")
-                    
-                    try:
-                        with open(file_path, "r", encoding="utf-8") as f:
-                            content = f.read()
-                        
-                        translated = translator.translate_latex(content)
-                        
-                        # Inject Chinese support if this is the main tex file
-                        if os.path.abspath(file_path) == os.path.abspath(main_tex):
-                            print("Injecting ctex support into main file...")
-                            
-                            # Remove conflicting CJK packages
-                            import re
-                            translated = re.sub(r'\\usepackage\{CJK.*\}', '', translated)
-                            translated = re.sub(r'\\usepackage\{xeCJK\}', '', translated) # Clean old if exists
-                            
-                            # Insert ctex
-                            if "\\documentclass" in translated and "ctex" not in translated:
-                                preamble = "\n\\usepackage[fontset=fandol]{ctex}\n\\usepackage{xspace}\n"
-                                
-                                # Insert before \begin{document} which is safer
-                                if "\\begin{document}" in translated:
-                                    translated = translated.replace("\\begin{document}", preamble + "\\begin{document}")
-                                else:
-                                    pass
-                        
-                        with open(file_path, "w", encoding="utf-8") as f:
-                            f.write(translated)
-                    except Exception as e:
-                        print(f"Error translating {file}: {e}")
-                        # Continue to next file
-                        
-        # 4. Compile
-        compile_pdf(source_zh_dir, main_tex)
-        
-        # Move PDF to root or custom output
-        pdf_name = os.path.basename(main_tex).replace(".tex", ".pdf")
-        compiled_pdf = os.path.join(source_zh_dir, pdf_name)
-        
-        # Suffix handling
-        if args.output:
-            final_pdf = args.output
-        else:
-            suffix = "_zh"
-            if "pro" in model_name.lower():
-                suffix = "_zh_pro"
-            elif "flash" in model_name.lower():
-                suffix = "_zh_flash"
-            final_pdf = f"{arxiv_id}{suffix}.pdf"
-        
-        if os.path.exists(compiled_pdf):
-            shutil.copy(compiled_pdf, final_pdf)
-            print(f"SUCCESS: Generated {final_pdf}")
-        else:
-            print("ERROR: PDF was not generated.")
-            
+    try:
+        process_arxiv_paper(
+            arxiv_id=arxiv_id,
+            model_name=model_name,
+            api_key=api_key,
+            output_path=args.output,
+            keep=args.keep,
+            progress_callback=console_progress
+        )
     except Exception as e:
-        print(f"FAILED: {e}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        if not args.keep:
-            # shutil.rmtree(work_dir)
-            pass # Keep by default for debug
+        print(f"Processing failed: {e}")
+        # traceback is printed in core if needed, or we can print here
             
 if __name__ == "__main__":
     main()

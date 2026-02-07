@@ -39,3 +39,20 @@ def test_translate_latex_markdown_cleanup(mock_client):
     result = translator.translate_latex("Original")
     
     assert result == "Clean Content"
+
+@patch('arxiv_translator.translator.genai.Client')
+def test_translate_latex_with_progress(mock_client):
+    # Setup mock
+    mock_response = MagicMock()
+    mock_response.text = "Translated Content"
+    mock_model = MagicMock()
+    mock_model.generate_content.return_value = mock_response
+    mock_client.return_value.models = mock_model
+
+    translator = GeminiTranslator("fake_key")
+    mock_callback = MagicMock()
+    result = translator.translate_latex("Original Content", progress_callback=mock_callback)
+
+    assert result == "Translated Content"
+    # Should be called with start message
+    mock_callback.assert_any_call("translate", -1, "Sending request to Gemini (Attempt 1/3)...")

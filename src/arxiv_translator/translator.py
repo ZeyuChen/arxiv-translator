@@ -29,7 +29,7 @@ CRITICAL RULES:
 5. If the input is too long, the system might have split it. Translate exactly what is given.
 """
 
-    def translate_latex(self, latex_content: str) -> str:
+    def translate_latex(self, latex_content: str, progress_callback=None) -> str:
         """
         Translates LaTeX content from English to Chinese using Gemini.
         Preserves LaTeX structure.
@@ -42,6 +42,9 @@ CRITICAL RULES:
             max_retries = 3
             for attempt in range(max_retries):
                 try:
+                    if progress_callback:
+                        progress_callback("translate", -1, f"Sending request to Gemini (Attempt {attempt+1}/{max_retries})...")
+
                     response = self.client.models.generate_content(
                         model=self.model_name,
                         config=types.GenerateContentConfig(
@@ -55,20 +58,29 @@ CRITICAL RULES:
                         cleaned = self._clean_output(response.text)
                         return cleaned
                 except Exception as e:
-                    print(f"Translation attempt {attempt+1} failed: {e}")
+                    msg = f"Translation attempt {attempt+1} failed: {e}"
+                    print(msg)
+                    if progress_callback:
+                        progress_callback("translate", -1, msg)
+
                     if attempt < max_retries - 1:
                         time.sleep(2 * (attempt + 1))
                     else:
                         print("Max retries reached. Attempting to chunk...")
-                        return self._translate_chunked(latex_content)
+                        if progress_callback:
+                            progress_callback("translate", -1, "Max retries reached. Attempting to chunk...")
+                        return self._translate_chunked(latex_content, progress_callback=progress_callback)
             
             return latex_content
             
         except Exception as e:
-            print(f"Translation error after retries: {e}")
+            msg = f"Translation error after retries: {e}"
+            print(msg)
+            if progress_callback:
+                progress_callback("translate", -1, msg)
             return latex_content
 
-    def _translate_chunked(self, content: str, chunk_size=150) -> str:
+    def _translate_chunked(self, content: str, chunk_size=150, progress_callback=None) -> str:
         """Splits content into chunks of ~chunk_size lines and translates them."""
         lines = content.split('\n')
         chunks = []
@@ -83,10 +95,17 @@ CRITICAL RULES:
             chunks.append('\n'.join(current_chunk))
             
         translated_chunks = []
-        print(f"Split content into {len(chunks)} chunks for translation.")
+        msg = f"Split content into {len(chunks)} chunks for translation."
+        print(msg)
+        if progress_callback:
+            progress_callback("translate", 0.0, msg)
         
         for i, chunk in enumerate(chunks):
-            print(f"Translating chunk {i+1}/{len(chunks)}...")
+            msg = f"Translating chunk {i+1}/{len(chunks)}..."
+            print(msg)
+            if progress_callback:
+                progress_callback("translate", (i) / len(chunks), msg)
+
             try:
                 response = self.client.models.generate_content(
                     model=self.model_name,
