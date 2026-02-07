@@ -59,44 +59,44 @@ curl --proto '=https' --tlsv1.2 -fsSL https://drop-sh.fullyjustified.net | sh
 ```
 
 ### 4. Configuration
-Create a `.env` file in the project root:
+
+**Quick Setup (v0.2+)**:
+Run the following command to save your API key globally (stored in `~/.arxiv-translator/config.json`):
 ```bash
-cp .env.example .env
+arxiv-translator --set-key YOUR_API_KEY
 ```
-Edit `.env` and add your Gemini API key:
-```ini
-GEMINI_API_KEY=your_api_key_here
+
+**Alternative**: Set the environment variable:
+```bash
+export GEMINI_API_KEY=your_api_key_here
 ```
 
 ## 📖 Usage
 
-Run the translator by providing the arXiv URL or ID:
-
+### Basic Usage
 ```bash
-python -m src.main https://arxiv.org/abs/2602.04705 --model flash
+arxiv-translator https://arxiv.org/abs/2602.04705
 ```
 
-### Arguments
+### Advanced Usage
 
--   `arxiv_url`: The URL or ID of the paper (e.g., `2602.04705` or `https://arxiv.org/abs/...`).
--   `--model`: The model to use. Options: `flash` (default) or `pro`.
--   `--keep`: Keep intermediate files (workspace directory) for debugging purposes.
-
-### Examples
-
-**Use Gemini 3.0 Flash (Default)**
+**Select Model**:
 ```bash
-python -m src.main 2602.04705
+# Use Gemini 3.0 Pro (Better quality, slower)
+arxiv-translator 2602.04705 --model pro
+
+# Use Gemini 3.0 Flash (Default, faster)
+arxiv-translator 2602.04705 --model flash
 ```
 
-**Use Gemini 3.0 Pro (Higher Quality)**
+**Custom Output**:
 ```bash
-python -m src.main 2602.04705 --model pro
+arxiv-translator 2602.04705 --output my_translated_paper.pdf
 ```
 
-**Keep Intermediate Files**
+**Full Help**:
 ```bash
-python -m src.main 2602.04705 --keep
+arxiv-translator --help
 ```
 
 ## 📂 Output

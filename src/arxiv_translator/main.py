@@ -6,6 +6,7 @@ from .downloader import download_source
 from .extractor import extract_source, find_main_tex
 from .translator import GeminiTranslator
 from .compiler import compile_pdf
+from .config import ConfigManager
 
 try:
     from dotenv import load_dotenv
@@ -13,20 +14,41 @@ try:
 except ImportError:
     pass
 
-# Load API Key from environment
-API_KEY = os.getenv("GEMINI_API_KEY")
-if not API_KEY:
-    print("Error: GEMINI_API_KEY environment variable not set.")
-    print("Please set it in your environment or create a .env file.")
-    sys.exit(1)
-
 def main():
     parser = argparse.ArgumentParser(description="arXiv LaTeX Translator - Translate arXiv papers to Chinese")
-    parser.add_argument("arxiv_url", help="URL or ID of the arXiv paper (e.g., https://arxiv.org/abs/2602.04705)")
+    
+    # Exclusive group for mutually exclusive actions (translate vs config)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("arxiv_url", nargs="?", help="URL or ID of the arXiv paper (e.g., https://arxiv.org/abs/2602.04705)")
+    group.add_argument("--set-key", help="Save Gemini API key to configuration and exit")
+    
     parser.add_argument("--model", default="gemini-3-flash-preview", help="Gemini model to use (flash or pro)")
+    parser.add_argument("--output", "-o", help="Custom output path for the translated PDF")
     parser.add_argument("--keep", action="store_true", help="Keep intermediate files for debugging")
     
     args = parser.parse_args()
+    config_manager = ConfigManager()
+
+    # Handle --set-key
+    if args.set_key:
+        config_manager.set_api_key(args.set_key)
+        sys.exit(0)
+
+    # Check for arXiv URL/ID
+    if not args.arxiv_url:
+        parser.print_help()
+        sys.exit(1)
+
+    # Load API Key: CLI (not arg here, but maybe future) > Env > Config
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        api_key = config_manager.get_api_key()
+    
+    if not api_key:
+        print("Error: Gemini API Key not found.")
+        print("Please set it via environment variable GEMINI_API_KEY")
+        print("OR run: arxiv-translator --set-key YOUR_API_KEY")
+        sys.exit(1)
 
     # Handle model aliases
     model_name = args.model
@@ -73,7 +95,7 @@ def main():
         main_tex = find_main_tex(source_zh_dir)
         print(f"Main TeX file: {main_tex}")
         
-        translator = GeminiTranslator(api_key=API_KEY, model_name=model_name)
+        translator = GeminiTranslator(api_key=api_key, model_name=model_name)
         
         # Translate all TeX files
         for root, dirs, files in os.walk(source_zh_dir):
@@ -120,18 +142,20 @@ def main():
         # 4. Compile
         compile_pdf(source_zh_dir, main_tex)
         
-        # Move PDF to root
+        # Move PDF to root or custom output
         pdf_name = os.path.basename(main_tex).replace(".tex", ".pdf")
         compiled_pdf = os.path.join(source_zh_dir, pdf_name)
         
         # Suffix handling
-        suffix = "_zh"
-        if "pro" in model_name.lower():
-            suffix = "_zh_pro"
-        elif "flash" in model_name.lower():
-            suffix = "_zh_flash"
-            
-        final_pdf = f"{arxiv_id}{suffix}.pdf"
+        if args.output:
+            final_pdf = args.output
+        else:
+            suffix = "_zh"
+            if "pro" in model_name.lower():
+                suffix = "_zh_pro"
+            elif "flash" in model_name.lower():
+                suffix = "_zh_flash"
+            final_pdf = f"{arxiv_id}{suffix}.pdf"
         
         if os.path.exists(compiled_pdf):
             shutil.copy(compiled_pdf, final_pdf)
