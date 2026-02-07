@@ -100,10 +100,14 @@ CRITICAL RULES:
                     cleaned = self._clean_output(response.text)
                     translated_chunks.append(cleaned)
                 else:
-                    translated_chunks.append(chunk) # Fallback for chunk
+                    # Fallback: Use original chunk but still clean comments
+                    cleaned_fallback = self._clean_output(chunk)
+                    translated_chunks.append(cleaned_fallback)
             except Exception as e:
                 print(f"Chunk {i+1} failed: {e}")
-                translated_chunks.append(chunk) # Fallback for chunk
+                # Fallback: Use original chunk but still clean comments
+                cleaned_fallback = self._clean_output(chunk)
+                translated_chunks.append(cleaned_fallback)
             
             # Rate limiting for Pro model to avoid overloading
             if "pro" in self.model_name.lower():
@@ -116,5 +120,13 @@ CRITICAL RULES:
         pattern = r"^```(?:latex)?\s*(.*?)\s*```$"
         match = re.search(pattern, text, re.DOTALL)
         if match:
-            return match.group(1)
-        return text
+            text = match.group(1)
+            
+        # Remove LaTeX comment lines (lines starting with %)
+        # This reduces token usage for subsequent steps (DeepDive) and reduces interference
+        lines = text.splitlines()
+        # Keep lines that are NOT comments (ignoring leading whitespace)
+        # We perform this post-processing to ensure clean input for DeepDive
+        cleaned_lines = [line for line in lines if not line.strip().startswith('%')]
+        
+        return '\n'.join(cleaned_lines)

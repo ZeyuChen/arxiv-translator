@@ -7,12 +7,43 @@ from .extractor import extract_source, find_main_tex
 from .translator import GeminiTranslator
 from .compiler import compile_pdf
 from .config import ConfigManager
+from .deepdive import DeepDiveAnalyzer
+from .logging_utils import logger
 
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
     pass
+
+def strip_latex_comments(content: str) -> str:
+    """
+    Removes lines that are strictly LaTeX comments (starting with %).
+    Retains structure but reduces token count.
+    """
+    lines = content.splitlines()
+    # Keep lines that do NOT start with % (ignoring leading whitespace)
+    # We do not remove inline comments (e.g. "x = 1 % comment") to avoid breaking code with \%
+    cleaned_lines = [line for line in lines if not line.strip().startswith('%')]
+    return '\n'.join(cleaned_lines)
+
+def deepdive_analysis_worker(api_key, file_path, model_name="gemini-3-flash-preview"):
+    try:
+        analyzer = DeepDiveAnalyzer(api_key, model_name=model_name)
+        file_name = os.path.basename(file_path)
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        
+        analyzed = analyzer.analyze_latex(content, file_name)
+        
+        if analyzed != content:
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(analyzed)
+            return True, file_name
+        return False, file_name
+    except Exception as e:
+        logger.error(f"DeepDive worker failed for {os.path.basename(file_path)}: {e}", exc_info=True)
+        return False, os.path.basename(file_path)
 
 def translate_file_worker(api_key, model_name, file_path, main_tex_path):
     import re
@@ -24,25 +55,34 @@ def translate_file_worker(api_key, model_name, file_path, main_tex_path):
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
             
+        # Pre-processing: Strip LaTeX comments to save tokens
+        content = strip_latex_comments(content)
+            
         translated = translator.translate_latex(content)
         
         # Inject ctex if main file
         if os.path.abspath(file_path) == os.path.abspath(main_tex_path):
-            print(f"Worker interacting with main file: {file_name}")
+            # print(f"Worker interacting with main file: {file_name}")
             import re
             translated = re.sub(r'\\usepackage\{CJK.*\}', '', translated)
             translated = re.sub(r'\\usepackage\{xeCJK\}', '', translated)
             
             if "\\documentclass" in translated and "ctex" not in translated:
                 preamble = "\n\\usepackage[fontset=fandol]{ctex}\n\\usepackage{xspace}\n"
+                
                 if "\\begin{document}" in translated:
                     translated = translated.replace("\\begin{document}", preamble + "\\begin{document}")
+
+            # Remove CJK* environment tags (Tectonic/ctex handles this natively)
+            # Pattern: \begin{CJK*}{UTF8}{gbsn} ... \end{CJK*}
+            translated = re.sub(r'\\begin\{CJK\*\}\{.*?\}\{.*?\}', '', translated)
+            translated = re.sub(r'\\end\{CJK\*\}', '', translated)
 
         # Conflict Resolution: \chinese command (e.g. from 2602.02276)
         # Apply GLOBALLY to all files to handle usage in files that don't define it
         # Scan for usage of \chinese
         if r"\chinese" in translated:
-            print(f"Renaming potential \\chinese conflict in {file_name}...")
+            # print(f"Renaming potential \\chinese conflict in {file_name}...")
             import re
             # Use regex to avoid replacing \chinesefont etc.
             translated = re.sub(r'\\chinese(?![a-zA-Z])', r'\\mychinese', translated)
@@ -92,7 +132,8 @@ def translate_file_worker(api_key, model_name, file_path, main_tex_path):
             
         return True
     except Exception as e:
-        print(f"Worker failed for {file_path}: {e}")
+        # Worker failure logged by executor usually, but good to be explicit
+        # print(f"Worker failed for {file_path}: {e}")
         raise e
 
 def main():
@@ -110,6 +151,7 @@ def main():
     parser.add_argument("--model", default="gemini-3-flash-preview", help="Gemini model to use (flash or pro)")
     parser.add_argument("--output", "-o", help="Custom output path for the translated PDF")
     parser.add_argument("--keep", action="store_true", help="Keep intermediate files for debugging")
+    parser.add_argument("--deepdive", action="store_true", help="Enable AI DeepDive (Technical Analysis)")
     
     args = parser.parse_args()
     config_manager = ConfigManager()
@@ -140,13 +182,16 @@ def main():
     if model_name.lower() == "flash":
         model_name = "gemini-3-flash-preview"
     elif model_name.lower() == "pro":
-        # Force Flash as requested "no longer use Pro"
-        model_name = "gemini-3-flash-preview"
+        model_name = "gemini-3-pro-preview"
     
     # Extract ID
     # heuristics: 2602.04705 or https://arxiv.org/abs/2602.04705 or https://arxiv.org/pdf/2602.04705
     arxiv_id = args.arxiv_url.split("/")[-1].replace(".pdf", "")
 
+    arxiv_id = args.arxiv_url.split("/")[-1].replace(".pdf", "")
+
+    logger.info(f"Starting translation for {arxiv_id} using model {model_name}")
+    logger.info(f"DeepDive Mode: {'ENABLED' if args.deepdive else 'DISABLED'}")
     print(f"Using model: {model_name}")
         
     work_dir = os.path.abspath(f"workspace_{arxiv_id}")
@@ -156,6 +201,10 @@ def main():
     if not os.path.exists(work_dir):
         os.makedirs(work_dir)
     
+    if not os.path.exists(work_dir):
+        os.makedirs(work_dir)
+    
+    logger.info(f"Work directory: {work_dir}")
     print(f"Work directory: {work_dir}")
     
     try:
@@ -164,8 +213,12 @@ def main():
         tar_path = os.path.join(work_dir, f"{arxiv_id}.tar.gz")
         if not os.path.exists(tar_path):
              tar_path = download_source(arxiv_id, work_dir)
+        if not os.path.exists(tar_path):
+             tar_path = download_source(arxiv_id, work_dir)
+             logger.info(f"Downloaded source to {tar_path}")
         else:
              print("Using existing source archive.")
+             logger.info("Using existing source archive.")
         
         # 2. Extract
         print(f"PROGRESS:EXTRACTING:Extracting source files...")
@@ -181,12 +234,13 @@ def main():
         shutil.copytree(source_dir, source_zh_dir)
         
         main_tex = find_main_tex(source_zh_dir)
-        print(f"Main TeX file: {main_tex}")
+        logger.info(f"Main TeX file found: {main_tex}")
+        print(f"Main TeX file: {main_tex}", flush=True)
         
         translator = GeminiTranslator(api_key=api_key, model_name=model_name)
         
         # Translate all TeX files
-        print(f"PROGRESS:TRANSLATING:0:0:Starting translation with {model_name}...")
+        print(f"PROGRESS:TRANSLATING:0:0:Starting translation with {model_name}...", flush=True)
         
         # Pre-count and collect files
         tex_files_to_translate = []
@@ -199,7 +253,7 @@ def main():
                      tex_files_to_translate.append(os.path.join(root, file))
         
         total_files = len(tex_files_to_translate)
-        print(f"Found {total_files} TeX files to translate.")
+        print(f"Found {total_files} TeX files to translate.", flush=True)
         
         # Concurrent Translation
         from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -240,10 +294,38 @@ def main():
                 try:
                     res = future.result()
                     # res is boolean or message?
-                    print(f"PROGRESS:TRANSLATING:{completed_count}:{total_files}:Translated {file_name}")
+                    print(f"PROGRESS:TRANSLATING:{completed_count}:{total_files}:Translated {file_name}", flush=True)
                 except Exception as exc:
+                    logger.error(f"Generated an exception for {file_name}: {exc}", exc_info=True)
                     print(f"Generated an exception for {file_name}: {exc}")
+                    print(f"PROGRESS:TRANSLATING:{completed_count}:{total_files}:Failed {file_name}", flush=True)
+
                     print(f"PROGRESS:TRANSLATING:{completed_count}:{total_files}:Failed {file_name}")
+
+        # 3.5. DeepDive Analysis (Optional)
+        if args.deepdive:
+            print(f"PROGRESS:ANALYZING:Starting parallel AI DeepDive Analysis (12 workers)...", flush=True)
+            aux_count = 0
+            
+            with ProcessPoolExecutor(max_workers=12) as executor:
+                future_to_file = {
+                    executor.submit(deepdive_analysis_worker, api_key, f, model_name): f 
+                    for f in tex_files_to_translate
+                }
+                
+                for future in as_completed(future_to_file):
+                    f_path = future_to_file[future]
+                    fname = os.path.basename(f_path)
+                    aux_count += 1
+                    try:
+                        is_changed, _ = future.result()
+                        if is_changed:
+                            print(f"PROGRESS:ANALYZING:{aux_count}:{total_files}:Analyzed {fname}", flush=True)
+                        else:
+                            print(f"PROGRESS:ANALYZING:{aux_count}:{total_files}:Skipped {fname}", flush=True)
+                    except Exception as e:
+                        logger.error(f"Analysis failed for {fname}: {e}", exc_info=True)
+                        print(f"Analysis failed for {fname}: {e}", flush=True)
 
         # 4. Compile
         print(f"PROGRESS:COMPILING:Compiling PDF with Tectonic...")
@@ -273,6 +355,7 @@ def main():
             print(f"PROGRESS:FAILED:PDF compilation failed.")
             
     except Exception as e:
+        logger.error(f"Translation FAILED: {e}", exc_info=True)
         print(f"FAILED: {e}")
         import traceback
         traceback.print_exc()

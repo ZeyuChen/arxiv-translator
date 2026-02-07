@@ -31,6 +31,8 @@
     -   Handles Large Files: Automatically chunks large LaTeX files to avoid API limits.
     -   Error Resilience: Retries on network failures.
     -   LaTeX Preservation: Strictly preserves mathematical formulas, citations, and structural commands.
+-   **DeepDive Analysis**: AI-powered technical analysis that injects explanation boxes into the PDF for complex formulas and concepts.
+-   **Concurrent Processing**: Uses parallel workers (12 processes) for both translation and analysis to significantly reduce wait times.
 -   **Chinese Support**: Automatically injects `ctex` package for proper Chinese rendering.
 
 ## 🚀 Installation
@@ -110,6 +112,9 @@ arxiv-translator 2602.04705 --model pro
 
 # Use Gemini 3.0 Flash (Default, faster)
 arxiv-translator 2602.04705 --model flash
+
+# Enable DeepDive Analysis (Technical Explanations)
+arxiv-translator 2602.04705 --deepdive
 ```
 
 **Custom Output**:
