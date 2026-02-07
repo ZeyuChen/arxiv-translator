@@ -48,7 +48,9 @@ def find_main_tex(source_dir: str) -> str:
     for f in tex_files:
         path = os.path.join(source_dir, f)
         with open(path, 'r', encoding='utf-8', errors='ignore') as content:
-            text = content.read()
+            # Read only the first 4096 characters to check for documentclass
+            # This avoids reading large files entirely into memory
+            text = content.read(4096)
             if '\\documentclass' in text:
                 candidates.append(f)
                 
