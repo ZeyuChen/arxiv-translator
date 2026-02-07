@@ -1,0 +1,116 @@
+from google import genai
+from google.genai import types
+import os
+import re
+import time
+
+class GeminiTranslator:
+    def __init__(self, api_key: str, model_name: str = "gemini-3-flash-preview"): 
+        self.api_key = api_key
+        # Default to Gemini 3 Flash Preview as per docs
+        self.model_name = model_name
+        self.client = genai.Client(api_key=self.api_key)
+
+    @property
+    def _system_prompt(self) -> str:
+        return """You are a professional academic translator specializing in computer science and mathematics. 
+Your task is to translate the following LaTeX source code from English to Chinese.
+
+CRITICAL RULES:
+1. STRICTLY PRESERVE all LaTeX commands, environments, macros, citations, references, and mathematical formulas. 
+   - Do NOT translate content inside `\\cite{...}`, `\\ref{...}`, `\\label{...}`, `\\usepackage{...}`, `\\documentclass{...}`.
+   - Do NOT translate equation environments like `\\begin{equation} ... \\end{equation}`, `$$ ... $$`, `$ ... $`.
+   - Do NOT translate code blocks or verbatim environments.
+2. Only translate the human-readable text content (paragraphs, section titles, captions).
+3. Ensure the translation is professional, academic, and flows naturally in Chinese. 
+   - Use precise and standard AI/ML terminology (e.g., "Transformer", "Zero-shot", "End-to-end", "Ablation study").
+   - Maintain a formal academic tone suitable for top-tier conference papers.
+4. Do NOT output markdown code fences (like ```latex ... ```). Output ONLY the raw translated LaTeX content.
+5. If the input is too long, the system might have split it. Translate exactly what is given.
+"""
+
+    def translate_latex(self, latex_content: str) -> str:
+        """
+        Translates LaTeX content from English to Chinese using Gemini.
+        Preserves LaTeX structure.
+        """
+        # Gemini Flash has 1M context, so we can probably send the whole file or large chunks.
+        # But for valid JSON/Request limits, maybe chunking is safer? 
+        # 1M context is huge. We can sending whole files usually.
+        
+        try:
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    response = self.client.models.generate_content(
+                        model=self.model_name,
+                        config=types.GenerateContentConfig(
+                            system_instruction=self._system_prompt,
+                            temperature=0.1, 
+                        ),
+                        contents=[latex_content]
+                    )
+                    
+                    if response.text:
+                        cleaned = self._clean_output(response.text)
+                        return cleaned
+                except Exception as e:
+                    print(f"Translation attempt {attempt+1} failed: {e}")
+                    if attempt < max_retries - 1:
+                        time.sleep(2 * (attempt + 1))
+                    else:
+                        print("Max retries reached. Attempting to chunk...")
+                        return self._translate_chunked(latex_content)
+            
+            return latex_content
+            
+        except Exception as e:
+            print(f"Translation error after retries: {e}")
+            return latex_content
+
+    def _translate_chunked(self, content: str, chunk_size=150) -> str:
+        """Splits content into chunks of ~chunk_size lines and translates them."""
+        lines = content.split('\n')
+        chunks = []
+        current_chunk = []
+        
+        for line in lines:
+            current_chunk.append(line)
+            if len(current_chunk) >= chunk_size:
+                chunks.append('\n'.join(current_chunk))
+                current_chunk = []
+        if current_chunk:
+            chunks.append('\n'.join(current_chunk))
+            
+        translated_chunks = []
+        print(f"Split content into {len(chunks)} chunks for translation.")
+        
+        for i, chunk in enumerate(chunks):
+            print(f"Translating chunk {i+1}/{len(chunks)}...")
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    config=types.GenerateContentConfig(
+                        system_instruction=self._system_prompt,
+                        temperature=0.1, 
+                    ),
+                    contents=[chunk]
+                )
+                if response.text:
+                    cleaned = self._clean_output(response.text)
+                    translated_chunks.append(cleaned)
+                else:
+                    translated_chunks.append(chunk) # Fallback for chunk
+            except Exception as e:
+                print(f"Chunk {i+1} failed: {e}")
+                translated_chunks.append(chunk) # Fallback for chunk
+                
+        return '\n'.join(translated_chunks)
+
+    def _clean_output(self, text: str) -> str:
+        # Remove ```latex ... ``` or ``` ... ```
+        pattern = r"^```(?:latex)?\s*(.*?)\s*```$"
+        match = re.search(pattern, text, re.DOTALL)
+        if match:
+            return match.group(1)
+        return text
