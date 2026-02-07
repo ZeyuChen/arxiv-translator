@@ -140,7 +140,7 @@ Contributions are welcome! Please submit a Pull Request.
 
 ## 📊 Performance Benchmark
 
-**Test Case**: [arXiv:2602.04705](https://arxiv.org/abs/2602.04705) (DeepSeek-V3 Technical Report)
+**Test Case**: [arXiv:2602.04705](https://arxiv.org/abs/2602.04705) (ERNIE 5.0 Technical Report)
 
 | Model | Time | Translation Quality | Note |
 | :--- | :--- | :--- | :--- |
