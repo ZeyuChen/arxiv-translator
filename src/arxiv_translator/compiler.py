@@ -20,8 +20,8 @@ def compile_pdf(source_dir: str, main_tex_file: str):
     
     try:
         # Tectonic automatically handles dependencies and multiple passes.
-        # It essentially replaces latexmk -xelatex (since it uses xetex engine under the hood)
-        cmd = ['tectonic', rel_tex_file]
+        # -Z shell-escape is needed for minted (pygments)
+        cmd = ['tectonic', '-X', 'compile', '--keep-intermediates', '-Z', 'shell-escape', rel_tex_file]
         
         result = subprocess.run(
             cmd,
