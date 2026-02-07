@@ -93,6 +93,7 @@ def main():
         shutil.copytree(source_dir, source_zh_dir)
         
         main_tex = find_main_tex(source_zh_dir)
+        main_tex_abs = os.path.abspath(main_tex)
         print(f"Main TeX file: {main_tex}")
         
         translator = GeminiTranslator(api_key=api_key, model_name=model_name)
@@ -115,7 +116,7 @@ def main():
                         translated = translator.translate_latex(content)
                         
                         # Inject Chinese support if this is the main tex file
-                        if os.path.abspath(file_path) == os.path.abspath(main_tex):
+                        if os.path.abspath(file_path) == main_tex_abs:
                             print("Injecting ctex support into main file...")
                             
                             # Remove conflicting CJK packages
