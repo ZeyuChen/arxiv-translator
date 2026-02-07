@@ -9,7 +9,7 @@ class GeminiTranslator:
         self.api_key = api_key
         # Default to Gemini 3 Flash Preview as per docs
         self.model_name = model_name
-        self.client = genai.Client(api_key=self.api_key)
+        self.client = genai.Client(api_key=self.api_key, http_options={'api_version': 'v1beta', 'timeout': 600000})
 
     @property
     def _system_prompt(self) -> str:
@@ -104,6 +104,10 @@ CRITICAL RULES:
             except Exception as e:
                 print(f"Chunk {i+1} failed: {e}")
                 translated_chunks.append(chunk) # Fallback for chunk
+            
+            # Rate limiting for Pro model to avoid overloading
+            if "pro" in self.model_name.lower():
+                time.sleep(2)  # 2 seconds delay between chunks
                 
         return '\n'.join(translated_chunks)
 

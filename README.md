@@ -94,6 +94,21 @@ The translated PDF will be generated in the project root with the format:
 
 Contributions are welcome! Please submit a Pull Request.
 
+## 📊 Performance Benchmark
+
+**Test Case**: [arXiv:2602.04705](https://arxiv.org/abs/2602.04705) (DeepSeek-V3 Technical Report)
+
+| Model | Time | Translation Quality | Note |
+| :--- | :--- | :--- | :--- |
+| **Gemini 3.0 Flash** | ~11 min | Good | Fast, reliable. Recommended for most papers. |
+| **Gemini 3.0 Pro** | ~20 min | Excellent | Slower, higher precision in detailed academic phrasing. |
+
+### Comparison Preview
+
+| Original English | Gemini 3.0 Flash | Gemini 3.0 Pro |
+| :---: | :---: | :---: |
+| ![English](screenshots/original_en.png) | ![Flash](screenshots/flash_zh.png) | ![Pro](screenshots/pro_zh.png) |
+
 ## 📄 License
 
 This project is licensed under the Apache License 2.0.
