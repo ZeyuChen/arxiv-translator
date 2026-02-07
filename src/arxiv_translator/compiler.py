@@ -1,5 +1,6 @@
 import subprocess
 import os
+from .logging_utils import logger
 
 def compile_pdf(source_dir: str, main_tex_file: str):
     """
@@ -16,7 +17,7 @@ def compile_pdf(source_dir: str, main_tex_file: str):
     # main_tex_file might be absolute, we need relative for latexmk usually
     rel_tex_file = os.path.basename(main_tex_file)
     
-    print(f"Compiling {rel_tex_file} in {source_dir}...")
+    logger.info(f"Compiling {rel_tex_file} in {source_dir}...")
     
     try:
         # Tectonic automatically handles dependencies and multiple passes.
@@ -31,13 +32,17 @@ def compile_pdf(source_dir: str, main_tex_file: str):
         )
         
         if result.returncode != 0:
-            print("Compilation had warnings/errors.")
-            print("STDOUT:", result.stdout)
-            print("STDERR:", result.stderr)
+            logger.warning(f"Compilation finished with return code {result.returncode}")
+            logger.warning("Compilation had warnings/errors.")
+            logger.debug(f"STDOUT: {result.stdout}")
+            logger.debug(f"STDERR: {result.stderr}")
+            # return False # We tolerate warnings
         else:
-            print("Compilation successful.")
+            logger.info("Compilation successful.")
             
+        return True
     except Exception as e:
-        print(f"Compiler error: {e}")
+        logger.error(f"Compiler error: {e}")
+        return False
     finally:
         os.chdir(cwd)

@@ -54,3 +54,11 @@ def setup_logger(name: str) -> logging.Logger:
 
 # Create a default logger
 logger = setup_logger("arxiv_translator")
+
+def log_ipc(message: str):
+    """
+    Logs an IPC message to STDOUT.
+    This is used for communicating progress to the calling process (Backend).
+    """
+    print(message, flush=True)
+

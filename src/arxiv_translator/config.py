@@ -2,6 +2,7 @@ import os
 import json
 from pathlib import Path
 from typing import Optional, Dict, Any
+from .logging_utils import logger
 
 class ConfigManager:
     def __init__(self, config_dir: Optional[str] = None):
@@ -28,7 +29,7 @@ class ConfigManager:
         except json.JSONDecodeError:
             return {}
         except Exception as e:
-            print(f"Warning: Could not load config file: {e}")
+            logger.warning(f"Warning: Could not load config file: {e}")
             return {}
 
     def save_config(self, config: Dict[str, Any]):
@@ -38,7 +39,7 @@ class ConfigManager:
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=4)
         except Exception as e:
-            print(f"Error saving config file: {e}")
+            logger.error(f"Error saving config file: {e}")
 
     def get_api_key(self) -> Optional[str]:
         """Retrieves API key from config."""
@@ -50,4 +51,4 @@ class ConfigManager:
         config = self.load_config()
         config["GEMINI_API_KEY"] = api_key
         self.save_config(config)
-        print(f"API key saved to {self.config_file}")
+        logger.info(f"API key saved to {self.config_file}")

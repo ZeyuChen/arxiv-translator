@@ -1,6 +1,7 @@
 import tarfile
 import os
 import shutil
+from .logging_utils import logger
 
 def extract_source(file_path: str, extract_to: str):
     """
@@ -13,7 +14,7 @@ def extract_source(file_path: str, extract_to: str):
     if not os.path.exists(extract_to):
         os.makedirs(extract_to)
         
-    print(f"Extracting {file_path} to {extract_to}...")
+    logger.info(f"Extracting {file_path} to {extract_to}...")
     
     try:
         if tarfile.is_tarfile(file_path):
@@ -25,7 +26,7 @@ def extract_source(file_path: str, extract_to: str):
             # If it's a gzip file but not tar?
             raise ValueError(f"File {file_path} is not a valid tar archive.")
     except Exception as e:
-        print(f"Extraction failed: {e}")
+        logger.error(f"Extraction failed: {e}")
         # Identify if it's just a .tex file (rare but possible for old papers)
         # TODO: Handle single .tex file case if needed.
         raise e

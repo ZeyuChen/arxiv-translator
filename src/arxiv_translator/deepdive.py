@@ -3,6 +3,7 @@ from google.genai import types
 import os
 import re
 import time
+from .logging_utils import logger
 
 class DeepDiveAnalyzer:
     def __init__(self, api_key: str, model_name: str = "gemini-3.0-pro-exp"):
@@ -43,11 +44,11 @@ class DeepDiveAnalyzer:
         
         # Limit file size to avoid timeout/cost issues
         if len(latex_content) > 131072:
-            print(f"Skipping {filename} (File too large for single-pass analysis).")
+            logger.info(f"Skipping {filename} (File too large for single-pass analysis).")
             return latex_content
 
         try:
-            # print(f"Analyzing technical content in {filename}...", flush=True) # Verbose logging removed for cleaner CLI output
+            # logger.debug(f"Analyzing technical content in {filename}...") # Verbose logging removed for cleaner CLI output
             response = self.client.models.generate_content(
                 model=self.model_name,
                 config=types.GenerateContentConfig(
@@ -63,7 +64,7 @@ class DeepDiveAnalyzer:
             return latex_content
 
         except Exception as e:
-            print(f"DeepDive analysis failed for {filename}: {e}")
+            logger.error(f"DeepDive analysis failed for {filename}: {e}")
             return latex_content
 
     def _clean_output(self, text: str) -> str:

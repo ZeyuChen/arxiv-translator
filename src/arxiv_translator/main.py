@@ -8,7 +8,7 @@ from .translator import GeminiTranslator
 from .compiler import compile_pdf
 from .config import ConfigManager
 from .deepdive import DeepDiveAnalyzer
-from .logging_utils import logger
+from .logging_utils import logger, log_ipc
 
 try:
     from dotenv import load_dotenv
@@ -62,7 +62,7 @@ def translate_file_worker(api_key, model_name, file_path, main_tex_path):
         
         # Inject ctex if main file
         if os.path.abspath(file_path) == os.path.abspath(main_tex_path):
-            # print(f"Worker interacting with main file: {file_name}")
+            logger.debug(f"Worker interacting with main file: {file_name}")
             import re
             translated = re.sub(r'\\usepackage\{CJK.*\}', '', translated)
             translated = re.sub(r'\\usepackage\{xeCJK\}', '', translated)
@@ -82,7 +82,7 @@ def translate_file_worker(api_key, model_name, file_path, main_tex_path):
         # Apply GLOBALLY to all files to handle usage in files that don't define it
         # Scan for usage of \chinese
         if r"\chinese" in translated:
-            # print(f"Renaming potential \\chinese conflict in {file_name}...")
+            logger.debug(f"Renaming potential \\chinese conflict in {file_name}...")
             import re
             # Use regex to avoid replacing \chinesefont etc.
             translated = re.sub(r'\\chinese(?![a-zA-Z])', r'\\mychinese', translated)
@@ -99,7 +99,7 @@ def translate_file_worker(api_key, model_name, file_path, main_tex_path):
                  )
 
         if "{minted}" in translated:
-             # print(f"Fixing minted package options in {file_name}...")
+             logger.debug(f"Fixing minted package options in {file_name}...")
              import re
              translated = re.sub(r'\\usepackage\[.*?\]\{minted\}', r'\\usepackage[outputdir=.]{minted}', translated)
         
@@ -133,7 +133,7 @@ def translate_file_worker(api_key, model_name, file_path, main_tex_path):
         return True
     except Exception as e:
         # Worker failure logged by executor usually, but good to be explicit
-        # print(f"Worker failed for {file_path}: {e}")
+        logger.error(f"Worker failed for {file_path}: {e}")
         raise e
 
 def main():
@@ -192,36 +192,32 @@ def main():
 
     logger.info(f"Starting translation for {arxiv_id} using model {model_name}")
     logger.info(f"DeepDive Mode: {'ENABLED' if args.deepdive else 'DISABLED'}")
-    print(f"Using model: {model_name}")
+    # print(f"Using model: {model_name}") # Logged above
         
     work_dir = os.path.abspath(f"workspace_{arxiv_id}")
     
     if os.path.exists(work_dir) and not args.keep:
          shutil.rmtree(work_dir)
-    if not os.path.exists(work_dir):
-        os.makedirs(work_dir)
     
     if not os.path.exists(work_dir):
         os.makedirs(work_dir)
     
     logger.info(f"Work directory: {work_dir}")
-    print(f"Work directory: {work_dir}")
+    # print(f"Work directory: {work_dir}") # Logged above
     
     try:
         # 1. Download source
-        print(f"PROGRESS:DOWNLOADING:Downloading source for {arxiv_id}...")
+        log_ipc(f"PROGRESS:DOWNLOADING:Downloading source for {arxiv_id}...")
         tar_path = os.path.join(work_dir, f"{arxiv_id}.tar.gz")
-        if not os.path.exists(tar_path):
-             tar_path = download_source(arxiv_id, work_dir)
         if not os.path.exists(tar_path):
              tar_path = download_source(arxiv_id, work_dir)
              logger.info(f"Downloaded source to {tar_path}")
         else:
-             print("Using existing source archive.")
              logger.info("Using existing source archive.")
         
         # 2. Extract
-        print(f"PROGRESS:EXTRACTING:Extracting source files...")
+        # 2. Extract
+        log_ipc(f"PROGRESS:EXTRACTING:Extracting source files...")
         source_dir = os.path.join(work_dir, "source")
         if not os.path.exists(source_dir):
             extract_source(tar_path, source_dir)
@@ -235,12 +231,13 @@ def main():
         
         main_tex = find_main_tex(source_zh_dir)
         logger.info(f"Main TeX file found: {main_tex}")
-        print(f"Main TeX file: {main_tex}", flush=True)
+        # print(f"Main TeX file: {main_tex}", flush=True)
         
         translator = GeminiTranslator(api_key=api_key, model_name=model_name)
         
         # Translate all TeX files
-        print(f"PROGRESS:TRANSLATING:0:0:Starting translation with {model_name}...", flush=True)
+        # Translate all TeX files
+        log_ipc(f"PROGRESS:TRANSLATING:0:0:Starting translation with {model_name}...")
         
         # Pre-count and collect files
         tex_files_to_translate = []
@@ -253,7 +250,8 @@ def main():
                      tex_files_to_translate.append(os.path.join(root, file))
         
         total_files = len(tex_files_to_translate)
-        print(f"Found {total_files} TeX files to translate.", flush=True)
+        total_files = len(tex_files_to_translate)
+        logger.info(f"Found {total_files} TeX files to translate.")
         
         # Concurrent Translation
         from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -294,17 +292,14 @@ def main():
                 try:
                     res = future.result()
                     # res is boolean or message?
-                    print(f"PROGRESS:TRANSLATING:{completed_count}:{total_files}:Translated {file_name}", flush=True)
+                    log_ipc(f"PROGRESS:TRANSLATING:{completed_count}:{total_files}:Translated {file_name}")
                 except Exception as exc:
                     logger.error(f"Generated an exception for {file_name}: {exc}", exc_info=True)
-                    print(f"Generated an exception for {file_name}: {exc}")
-                    print(f"PROGRESS:TRANSLATING:{completed_count}:{total_files}:Failed {file_name}", flush=True)
-
-                    print(f"PROGRESS:TRANSLATING:{completed_count}:{total_files}:Failed {file_name}")
+                    log_ipc(f"PROGRESS:TRANSLATING:{completed_count}:{total_files}:Failed {file_name}")
 
         # 3.5. DeepDive Analysis (Optional)
         if args.deepdive:
-            print(f"PROGRESS:ANALYZING:Starting parallel AI DeepDive Analysis (12 workers)...", flush=True)
+            log_ipc(f"PROGRESS:ANALYZING:Starting parallel AI DeepDive Analysis (12 workers)...")
             aux_count = 0
             
             with ProcessPoolExecutor(max_workers=12) as executor:
@@ -320,15 +315,14 @@ def main():
                     try:
                         is_changed, _ = future.result()
                         if is_changed:
-                            print(f"PROGRESS:ANALYZING:{aux_count}:{total_files}:Analyzed {fname}", flush=True)
+                            log_ipc(f"PROGRESS:ANALYZING:{aux_count}:{total_files}:Analyzed {fname}")
                         else:
-                            print(f"PROGRESS:ANALYZING:{aux_count}:{total_files}:Skipped {fname}", flush=True)
+                            log_ipc(f"PROGRESS:ANALYZING:{aux_count}:{total_files}:Skipped {fname}")
                     except Exception as e:
                         logger.error(f"Analysis failed for {fname}: {e}", exc_info=True)
-                        print(f"Analysis failed for {fname}: {e}", flush=True)
 
         # 4. Compile
-        print(f"PROGRESS:COMPILING:Compiling PDF with Tectonic...")
+        log_ipc(f"PROGRESS:COMPILING:Compiling PDF with Tectonic...")
         compile_pdf(source_zh_dir, main_tex)
         
         # Move PDF to root or custom output
@@ -348,17 +342,16 @@ def main():
         
         if os.path.exists(compiled_pdf):
             shutil.copy(compiled_pdf, final_pdf)
-            print(f"SUCCESS: Generated {final_pdf}")
-            print(f"PROGRESS:COMPLETED:Translation finished successfully.")
+            logger.info(f"SUCCESS: Generated {final_pdf}")
+            log_ipc(f"PROGRESS:COMPLETED:Translation finished successfully.")
         else:
-            print("ERROR: PDF was not generated.")
-            print(f"PROGRESS:FAILED:PDF compilation failed.")
+            logger.error("ERROR: PDF was not generated.")
+            log_ipc(f"PROGRESS:FAILED:PDF compilation failed.")
             
     except Exception as e:
         logger.error(f"Translation FAILED: {e}", exc_info=True)
-        print(f"FAILED: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"FAILED: {e}") # Print to stdout for CLI visibility if logger goes to stderr only
+        # traceback.print_exc() # Handled by exc_info=True in logger
     finally:
         if not args.keep:
             # shutil.rmtree(work_dir)

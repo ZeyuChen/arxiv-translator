@@ -3,6 +3,7 @@ from google.genai import types
 import os
 import re
 import time
+from .logging_utils import logger
 
 class GeminiTranslator:
     def __init__(self, api_key: str, model_name: str = "gemini-3-flash-preview"): 
@@ -55,20 +56,20 @@ CRITICAL RULES:
                         cleaned = self._clean_output(response.text)
                         return cleaned
                 except Exception as e:
-                    print(f"Translation attempt {attempt+1} failed: {e}")
+                    logger.warning(f"Translation attempt {attempt+1} failed: {e}")
                     if attempt < max_retries - 1:
                         time.sleep(2 * (attempt + 1))
                     else:
-                        print("Max retries reached. Attempting to chunk...")
-                        return self._translate_chunked(latex_content)
+                        logger.warning("Max retries reached. Attempting to chunk...")
+                        return self._translate_large_latex(latex_content)
             
             return latex_content
             
         except Exception as e:
-            print(f"Translation error after retries: {e}")
+            logger.error(f"Translation error after retries: {e}")
             return latex_content
 
-    def _translate_chunked(self, content: str, chunk_size=150) -> str:
+    def _translate_large_latex(self, content: str, chunk_size=150) -> str:
         """Splits content into chunks of ~chunk_size lines and translates them."""
         lines = content.split('\n')
         chunks = []
@@ -83,10 +84,10 @@ CRITICAL RULES:
             chunks.append('\n'.join(current_chunk))
             
         translated_chunks = []
-        print(f"Split content into {len(chunks)} chunks for translation.")
+        logger.info(f"Split content into {len(chunks)} chunks for translation.")
         
         for i, chunk in enumerate(chunks):
-            print(f"Translating chunk {i+1}/{len(chunks)}...")
+            logger.debug(f"Translating chunk {i+1}/{len(chunks)}...")
             try:
                 response = self.client.models.generate_content(
                     model=self.model_name,
@@ -104,7 +105,7 @@ CRITICAL RULES:
                     cleaned_fallback = self._clean_output(chunk)
                     translated_chunks.append(cleaned_fallback)
             except Exception as e:
-                print(f"Chunk {i+1} failed: {e}")
+                logger.error(f"Chunk {i+1} failed: {e}")
                 # Fallback: Use original chunk but still clean comments
                 cleaned_fallback = self._clean_output(chunk)
                 translated_chunks.append(cleaned_fallback)
