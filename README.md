@@ -1,7 +1,17 @@
-# arXiv LaTeX Translator 🤖📄
+<div align="center">
+  <img src="docs/icon.png" alt="arXiv Translator Icon" width="128"/>
+  <h1>arXiv LaTeX Translator</h1>
+</div>
 
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+<div align="center">
+
+[![PyPI version](https://badge.fury.io/py/arxiv-translator.svg)](https://badge.fury.io/py/arxiv-translator)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![CI](https://github.com/ZeyuChen/arxiv-translator/actions/workflows/ci.yml/badge.svg)](https://github.com/ZeyuChen/arxiv-translator/actions/workflows/ci.yml)
+[![Downloads](https://pepy.tech/badge/arxiv-translator)](https://pepy.tech/project/arxiv-translator)
+
+</div>
 
 **arXiv LaTeX Translator** is a powerful tool configured to automatically translate arXiv papers from English to Chinese. It downloads the LaTeX source, translates the content using **Google Gemini 3.0** (Flash or Pro), and recompiles the paper into a professional PDF, preserving the original layout, equations, and citations.
 
@@ -25,7 +35,13 @@
 
 ## 🚀 Installation
 
-### Option 1: Install from Source (Recommended for Users)
+### Option 1: Install via PyPI (Recommended)
+
+```bash
+pip install arxiv-translator
+```
+
+### Option 2: Install from Source (For Development)
 
 ```bash
 git clone https://github.com/ZeyuChen/arxiv-translator.git
@@ -58,7 +74,14 @@ micromamba install tectonic -c conda-forge
 curl --proto '=https' --tlsv1.2 -fsSL https://drop-sh.fullyjustified.net | sh
 ```
 
-### 4. Configuration
+### 4. Get Gemini API Key
+1.  Visit [Google AI Studio](https://aistudio.google.com/).
+2.  Sign in with your Google account.
+3.  Click **"Get API key"** in the sidebar.
+4.  Click **"Create API key"** (you can create it in a new or existing Google Cloud project).
+5.  Copy the key string (starts with `AIza...`).
+
+### 5. Configuration
 
 **Quick Setup (v0.2+)**:
 Run the following command to save your API key globally (stored in `~/.arxiv-translator/config.json`):
@@ -126,17 +149,18 @@ Contributions are welcome! Please submit a Pull Request.
 
 ### Comparison Preview
 
-### Original English
-*(Please manually replace with screenshot: `screenshots/original_en.png`)*
-![Original](screenshots/original_en.png)
-
-### Gemini 3.0 Flash (Chinese)
-*(Please manually replace with screenshot: `screenshots/flash_zh.png`)*
-![Flash](screenshots/flash_zh.png)
-
-### Gemini 3.0 Pro (Chinese)
-*(Please manually replace with screenshot: `screenshots/pro_zh.png`)*
-![Pro](screenshots/pro_zh.png)
+<table>
+  <tr>
+    <th align="center">Original English</th>
+    <th align="center">Gemini 3.0 Flash</th>
+    <th align="center">Gemini 3.0 Pro</th>
+  </tr>
+  <tr>
+    <td align="center"><img src="screenshots/original_en.png" width="300" /></td>
+    <td align="center"><img src="screenshots/flash_zh.png" width="300" /></td>
+    <td align="center"><img src="screenshots/pro_zh.png" width="300" /></td>
+  </tr>
+</table>
 
 ## 📄 License
 
