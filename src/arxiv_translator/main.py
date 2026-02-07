@@ -38,6 +38,26 @@ def translate_file_worker(api_key, model_name, file_path, main_tex_path):
                 if "\\begin{document}" in translated:
                     translated = translated.replace("\\begin{document}", preamble + "\\begin{document}")
 
+        # Conflict Resolution: \chinese command (e.g. from 2602.02276)
+        # Apply GLOBALLY to all files to handle usage in files that don't define it
+        # Scan for usage of \chinese
+        if r"\chinese" in translated:
+            print(f"Renaming potential \\chinese conflict in {file_name}...")
+            import re
+            # Use regex to avoid replacing \chinesefont etc.
+            translated = re.sub(r'\\chinese(?![a-zA-Z])', r'\\mychinese', translated)
+            
+            # If we renamed the definition, simplify it
+            if r"\newcommand{\mychinese}" in translated or r"\def\mychinese" in translated:
+                 # Redefine to pass-through (removing CJK* dependency)
+                 # Pattern: \newcommand{\mychinese}[1]{\begin{CJK*}{UTF8}{gbsn}{#1}\end{CJK*}}
+                 translated = re.sub(
+                    r'\\newcommand\{\\mychinese\}\[1\]\{.*?\\end\{CJK\*\}\}', 
+                    r'\\newcommand{\\mychinese}[1]{#1}', 
+                    translated, 
+                    flags=re.DOTALL
+                 )
+
         if "{minted}" in translated:
              # print(f"Fixing minted package options in {file_name}...")
              import re
@@ -61,6 +81,11 @@ def translate_file_worker(api_key, model_name, file_path, main_tex_path):
             return match.group(0)
             
         translated = label_pattern.sub(replace_label, translated)
+        
+        # General LaTeX Fixes for LLM artifacts
+        # Fix broken escapes like "\ }" -> "\}"
+        translated = translated.replace(r"\ }", r"\}")
+        translated = translated.replace(r"\ {", r"\{")
         
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(translated)
@@ -115,7 +140,8 @@ def main():
     if model_name.lower() == "flash":
         model_name = "gemini-3-flash-preview"
     elif model_name.lower() == "pro":
-        model_name = "gemini-3-pro-preview"
+        # Force Flash as requested "no longer use Pro"
+        model_name = "gemini-3-flash-preview"
     
     # Extract ID
     # heuristics: 2602.04705 or https://arxiv.org/abs/2602.04705 or https://arxiv.org/pdf/2602.04705
@@ -201,7 +227,7 @@ def main():
         # WAIT, if I edit the loop to call `translate_file_worker`, and then edit top to add it, the file is broken in between. That's fine.
         
         completed_count = 0
-        with ProcessPoolExecutor(max_workers=8) as executor:
+        with ProcessPoolExecutor(max_workers=12) as executor:
             future_to_file = {
                 executor.submit(translate_file_worker, api_key, model_name, f, main_tex): f 
                 for f in tex_files_to_translate
