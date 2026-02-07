@@ -1,9 +1,9 @@
 import os
 import pytest
 from unittest.mock import patch, MagicMock
-from src.downloader import download_source
+from arxiv_translator.downloader import download_source
 
-@patch('src.downloader.requests.get')
+@patch('arxiv_translator.downloader.requests.get')
 def test_download_source(mock_get, tmp_path):
     # Mock response
     mock_response = MagicMock()

@@ -2,15 +2,13 @@ import pytest
 from unittest.mock import patch, MagicMock
 import os
 import shutil
-from src.main import main
-
-@patch('src.main.download_source')
-@patch('src.main.extract_source')
-@patch('src.main.GeminiTranslator')
-@patch('src.main.compile_pdf')
-@patch('src.main.find_main_tex')
+from arxiv_translator.main import main
+@patch('arxiv_translator.main.download_source')
+@patch('arxiv_translator.main.extract_source')
+@patch('arxiv_translator.main.GeminiTranslator')
+@patch('arxiv_translator.main.compile_pdf')
+@patch('arxiv_translator.main.find_main_tex')
 def test_e2e_mocked(mock_find, mock_compile, mock_translator, mock_extract, mock_download, tmp_path):
-    # Setup mocks
     mock_download.return_value = "/tmp/fake.tar.gz"
     mock_find.return_value = str(tmp_path / "source_zh" / "main.tex")
     
@@ -38,10 +36,10 @@ def test_e2e_real_structure(tmp_path):
     (tmp_path / "source").mkdir()
     (tmp_path / "source" / "main.tex").write_text("\\documentclass{article}\\begin{document}Hello\\end{document}")
     
-    with patch('src.main.download_source') as mock_dl, \
-         patch('src.main.extract_source') as mock_ext, \
-         patch('src.main.GeminiTranslator') as mock_trans, \
-         patch('src.main.compile_pdf') as mock_comp:
+    with patch('arxiv_translator.main.download_source') as mock_dl, \
+         patch('arxiv_translator.main.extract_source') as mock_ext, \
+         patch('arxiv_translator.main.GeminiTranslator') as mock_trans, \
+         patch('arxiv_translator.main.compile_pdf') as mock_comp:
          
         mock_dl.return_value = str(tmp_path / "fake.tar.gz")
         

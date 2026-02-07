@@ -1,13 +1,13 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from src.translator import GeminiTranslator
+from arxiv_translator.translator import GeminiTranslator
 
-@patch('src.translator.genai.Client')
+@patch('arxiv_translator.translator.genai.Client')
 def test_translator_init(mock_client):
     translator = GeminiTranslator("fake_key")
-    mock_client.assert_called_with(api_key="fake_key")
+    mock_client.assert_called_with(api_key="fake_key", http_options={'api_version': 'v1beta', 'timeout': 600000})
 
-@patch('src.translator.genai.Client')
+@patch('arxiv_translator.translator.genai.Client')
 def test_translate_latex(mock_client):
     # Setup mock
     mock_response = MagicMock()
@@ -27,7 +27,7 @@ def test_translate_latex(mock_client):
     # Check system instruction is present (impl detail)
     assert kwargs['config'].system_instruction is not None
 
-@patch('src.translator.genai.Client')
+@patch('arxiv_translator.translator.genai.Client')
 def test_translate_latex_markdown_cleanup(mock_client):
     mock_response = MagicMock()
     mock_response.text = "```latex\nClean Content\n```"

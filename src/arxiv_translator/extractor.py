@@ -31,7 +31,7 @@ def extract_source(file_path: str, extract_to: str):
         raise e
 
 def find_main_tex(source_dir: str) -> str:
-    """
+    r"""
     Attempts to identify the main .tex file in the directory.
     Heuristic: Look for \documentclass. If multiple, pick 'main.tex' or 'ms.tex' or the one with \begin{document}.
     """

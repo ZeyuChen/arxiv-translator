@@ -14,38 +14,59 @@
   - Handles Large Files: Automatically chunks large LaTeX files to avoid API limits.
   - Error Resilience: Retries on network failures.
   - LaTeX Preservation: Strictly preserves mathematical formulas, citations, and structural commands.
-- **Chinese Support**: Automatically injects `ctex` package for proper Chinese rendering.
+-   **Automated Workflow**: Downloads source -> Extracts -> Translates -> Recompiles.
+-   **Model Selection**: Choose between **Gemini 3.0 Flash** (fast/cheap) or **Gemini 3.0 Pro** (higher quality).
+-   **Academic Quality**: Uses specialized prompts to ensure accurate translation of AI/ML terminology and academic tone.
+-   **Robust Processing**:
+    -   Handles Large Files: Automatically chunks large LaTeX files to avoid API limits.
+    -   Error Resilience: Retries on network failures.
+    -   LaTeX Preservation: Strictly preserves mathematical formulas, citations, and structural commands.
+-   **Chinese Support**: Automatically injects `ctex` package for proper Chinese rendering.
 
-## 🚀 Prerequisites
+## 🚀 Installation
 
-1.  **Python 3.11+**
-2.  **Tectonic**: A modern, self-contained LaTeX engine.
-    -   *Installation*: `curl --proto '=https' --tlsv1.2 -fsSL https://drop-sh.fullyjustified.net | sh` (or via your package manager).
-    -   *Micromamba/Conda*: `micromamba install tectonic`
-3.  **Google Gemini API Key**: Get one from [Google AI Studio](https://aistudio.google.com/).
+### Option 1: Install from Source (Recommended for Users)
 
-## 🛠️ Installation
+```bash
+git clone https://github.com/ZeyuChen/arxiv-translator.git
+cd arxiv-translator
+pip install .
+```
 
-1.  **Clone the repository**
-    ```bash
-    git clone https://github.com/ZeyuChen/arxiv-translator.git
-    cd arxiv-translator
-    ```
+### Option 2: Development Setup (Recommended for Contributors)
 
-2.  **Install Config Dependencies**
-    ```bash
-    pip install -r requirements.txt
-    ```
+```bash
+git clone https://github.com/ZeyuChen/arxiv-translator.git
+cd arxiv-translator
 
-3.  **Configure Environment**
-    Copy the example environment file and add your API key:
-    ```bash
-    cp .env.example .env
-    ```
-    Open `.env` and paste your key:
-    ```
-    GEMINI_API_KEY=your_actual_api_key_here
-    ```
+# Install micromamba environment (optional but recommended)
+micromamba create -f environment.yml
+micromamba activate arxiv-translator
+
+# Install package in editable mode with dev dependencies
+pip install -e .
+```
+
+### 3. Install Tectonic (TeX Engine)
+The translator uses [Tectonic](https://tectonic-typesetting.github.io/) for robust PDF compilation.
+
+```bash
+# If using micromamba environment (already installed via environment.yml)
+micromamba install tectonic -c conda-forge
+
+# Or install manually
+curl --proto '=https' --tlsv1.2 -fsSL https://drop-sh.fullyjustified.net | sh
+```
+
+### 4. Configuration
+Create a `.env` file in the project root:
+```bash
+cp .env.example .env
+```
+Edit `.env` and add your Gemini API key:
+```ini
+GEMINI_API_KEY=your_api_key_here
+```
 
 ## 📖 Usage
 
@@ -105,9 +126,17 @@ Contributions are welcome! Please submit a Pull Request.
 
 ### Comparison Preview
 
-| Original English | Gemini 3.0 Flash | Gemini 3.0 Pro |
-| :---: | :---: | :---: |
-| ![English](screenshots/original_en.png) | ![Flash](screenshots/flash_zh.png) | ![Pro](screenshots/pro_zh.png) |
+### Original English
+*(Please manually replace with screenshot: `screenshots/original_en.png`)*
+![Original](screenshots/original_en.png)
+
+### Gemini 3.0 Flash (Chinese)
+*(Please manually replace with screenshot: `screenshots/flash_zh.png`)*
+![Flash](screenshots/flash_zh.png)
+
+### Gemini 3.0 Pro (Chinese)
+*(Please manually replace with screenshot: `screenshots/pro_zh.png`)*
+![Pro](screenshots/pro_zh.png)
 
 ## 📄 License
 
