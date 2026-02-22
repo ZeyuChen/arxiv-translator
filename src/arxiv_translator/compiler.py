@@ -4,7 +4,7 @@ from .logging_utils import logger
 
 def compile_pdf(source_dir: str, main_tex_file: str):
     """
-    Compiles the LaTeX project to PDF using latexmk.
+    Compiles the LaTeX project to PDF using tectonic.
     
     Args:
         source_dir (str): The directory containing the source files.
